@@ -4,55 +4,52 @@
 */
 void time_layer_update_proc(TimeLayer *tl, GContext* ctx)
 {
-    if (tl->background_color != GColorClear)
-    {
-        graphics_context_set_fill_color(ctx, tl->background_color);
-        graphics_fill_rect(ctx, tl->layer.bounds, 0, GCornerNone);
-    }
-    graphics_context_set_text_color(ctx, tl->text_color);
+  TimeData * td = layer_get_data(tl);
+  if(td->background_color != GColorClear)
+  {
+    graphics_context_set_fill_color(ctx, td->background_color);
+    graphics_fill_rect(ctx, layer_get_bounds(tl), 0, GCornerNone);
+  }
+  graphics_context_set_text_color(ctx, td->text_color);
 
-    if (tl->hour_text && tl->minute_text)
-    {
-        GSize hour_sz =
-            graphics_text_layout_get_max_used_size(ctx,
-                                                   tl->hour_text,
-                                                   tl->hour_font,
-                                                   tl->layer.bounds,
-                                                   tl->overflow_mode,
-                                                   GTextAlignmentLeft,
-                                                   tl->layout_cache);
-        GSize minute_sz =
-            graphics_text_layout_get_max_used_size(ctx,
-                                                   tl->minute_text,
-                                                   tl->minute_font,
-                                                   tl->layer.bounds,
-                                                   tl->overflow_mode,
-                                                   GTextAlignmentLeft,
-                                                   tl->layout_cache);
-        int width = minute_sz.w + hour_sz.w;
-        int half = tl->layer.bounds.size.w / 2;
-        GRect hour_bounds = tl->layer.bounds;
-        GRect minute_bounds = tl->layer.bounds;
+  if(td->hour_text && td->minute_text)
+  {
+    GSize hour_sz =
+      graphics_text_layout_get_content_size(td->hour_text,
+                                            td->hour_font,
+                                            layer_get_bounds(tl),
+                                            td->overflow_mode,
+                                            GTextAlignmentLeft);
+    GSize minute_sz =
+      graphics_text_layout_get_content_size(td->minute_text,
+                                            td->minute_font,
+                                            layer_get_bounds(tl),
+                                            td->overflow_mode,
+                                            GTextAlignmentLeft);
+    int width = minute_sz.w + hour_sz.w;
+    int half = layer_get_bounds(tl).size.w / 2;
+    GRect hour_bounds = layer_get_bounds(tl);
+    GRect minute_bounds = layer_get_bounds(tl);
 
-        hour_bounds.size.w = half - (width / 2) + hour_sz.w;
-        minute_bounds.origin.x = hour_bounds.size.w + 1;
-        minute_bounds.size.w = minute_sz.w;
+    hour_bounds.size.w = half - (width / 2) + hour_sz.w;
+    minute_bounds.origin.x = hour_bounds.size.w + 1;
+    minute_bounds.size.w = minute_sz.w;
 
-        graphics_text_draw(ctx,
-                           tl->hour_text,
-                           tl->hour_font,
-                           hour_bounds,
-                           tl->overflow_mode,
-                           GTextAlignmentRight,
-                           tl->layout_cache);
-        graphics_text_draw(ctx,
-                           tl->minute_text,
-                           tl->minute_font,
-                           minute_bounds,
-                           tl->overflow_mode,
-                           GTextAlignmentLeft,
-                           tl->layout_cache);
-    }
+    graphics_draw_text(ctx,
+                       td->hour_text,
+                       td->hour_font,
+                       hour_bounds,
+                       td->overflow_mode,
+                       GTextAlignmentRight,
+                       td->layout_cache);
+    graphics_draw_text(ctx,
+                       td->minute_text,
+                       td->minute_font,
+                       minute_bounds,
+                       td->overflow_mode,
+                       GTextAlignmentLeft,
+                       td->layout_cache);
+  }
 }
 
 
@@ -62,10 +59,11 @@ void time_layer_update_proc(TimeLayer *tl, GContext* ctx)
 */
 void time_layer_set_text(TimeLayer *tl, char *hour_text, char *minute_text)
 {
-    tl->hour_text = hour_text;
-    tl->minute_text = minute_text;
+  TimeData * td = layer_get_data(tl);
+  td->hour_text = hour_text;
+  td->minute_text = minute_text;
 
-    layer_mark_dirty(&(tl->layer));
+  layer_mark_dirty(tl);
 }
 
 
@@ -73,13 +71,14 @@ void time_layer_set_text(TimeLayer *tl, char *hour_text, char *minute_text)
 */
 void time_layer_set_fonts(TimeLayer *tl, GFont hour_font, GFont minute_font)
 {
-    tl->hour_font = hour_font;
-    tl->minute_font = minute_font;
+  TimeData * td = layer_get_data(tl);
+  td->hour_font = hour_font;
+  td->minute_font = minute_font;
 
-    if (tl->hour_text && tl->minute_text)
-    {
-        layer_mark_dirty(&(tl->layer));
-    }
+  if (td->hour_text && td->minute_text)
+  {
+    layer_mark_dirty(tl);
+  }
 }
 
 
@@ -87,12 +86,13 @@ void time_layer_set_fonts(TimeLayer *tl, GFont hour_font, GFont minute_font)
 */
 void time_layer_set_text_color(TimeLayer *tl, GColor color)
 {
-    tl->text_color = color;
+  TimeData * td = layer_get_data(tl);
+  td->text_color = color;
 
-    if (tl->hour_text && tl->minute_text)
-    {
-        layer_mark_dirty(&(tl->layer));
-    }
+  if (td->hour_text && td->minute_text)
+  {
+    layer_mark_dirty(tl);
+  }
 }
 
 
@@ -100,26 +100,36 @@ void time_layer_set_text_color(TimeLayer *tl, GColor color)
 */
 void time_layer_set_background_color(TimeLayer *tl, GColor color)
 {
-    tl->background_color = color;
+  TimeData * td = layer_get_data(tl);
+  td->background_color = color;
 
-    if (tl->hour_text && tl->minute_text)
-    {
-        layer_mark_dirty(&(tl->layer));
-    }
+  if(td->hour_text && td->minute_text)
+  {
+    layer_mark_dirty(tl);
+  }
 }
 
 
 /* Initialize the time layer with default colors and fonts.
 */
-void time_layer_init(TimeLayer *tl, GRect frame)
+TimeLayer * time_layer_create(GRect frame)
 {
-    tl->layer = layer_create(frame);
-    layer_set_update_proc(tl->layer, );
-    tl->layer->update_proc = (LayerUpdateProc)time_layer_update_proc;
-    tl->text_color = GColorWhite;
-    tl->background_color = GColorClear;
-    tl->overflow_mode = GTextOverflowModeWordWrap;
+  // TODO: free this in window unload?
+  TimeLayer * tl = layer_create_with_data(frame, sizeof(TimeData));
+  TimeData * td = layer_get_data(tl);
+  layer_set_update_proc(tl, time_layer_update_proc);
+  td->text_color = GColorWhite;
+  td->background_color = GColorClear;
+  td->overflow_mode = GTextOverflowModeWordWrap;
+  
+  td->hour_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
+  td->minute_font = td->hour_font;
+  return tl;
+}
 
-    tl->hour_font = fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD);
-    tl->minute_font = tl->hour_font;
+void time_layer_destroy(TimeLayer * tl)
+{
+  // TODO: do we need to clean anything else?
+  /* TimeData * td = layer_get_data(tl); */
+  layer_destroy(tl);
 }

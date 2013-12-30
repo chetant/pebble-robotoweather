@@ -30,8 +30,6 @@ static GFont * font_date;        /* font for date (normal) */
 static GFont * font_hour;        /* font for hour (bold) */
 static GFont * font_minute;      /* font for minute (thin) */
 
-static int initial_minute;
-
 /* //Weather Stuff */
 /* static int our_latitude, our_longitude; */
 /* static bool located = false; */
@@ -86,69 +84,65 @@ static int initial_minute;
 
 /* void request_weather(); */
 
-/* Called by the OS once per minute. Update the time and date.
-*/
-void handle_minute_tick(AppContextRef ctx, PebbleTickEvent *t)
+static void display_time(struct tm *tick_time, TimeUnits units_changed)
 {
-    /* Need to be static because pointers to them are stored in the text
-    * layers.
-    */
-    static char date_text[] = "XXX, XXX 00";
-    static char hour_text[] = "00";
-    static char minute_text[] = ":00";
+  /* Need to be static because pointers to them are stored in the text
+   * layers.
+   */
+  static char date_text[] = "XXX, XXX 00";
+  static char hour_text[] = "00";
+  static char minute_text[] = ":00";
 
-    (void)ctx;  /* prevent "unused parameter" warning */
+  if(units_changed & DAY_UNIT)
+  {
+    strftime(date_text, sizeof(date_text), "%a, %b %d", tick_time);
+    text_layer_set_text(date_layer, date_text);
+  }
 
-    if (t->units_changed & DAY_UNIT)
+  if(clock_is_24h_style())
+  {
+    strftime(hour_text, sizeof(hour_text), "%H", tick_time);
+  }
+  else
+  {
+    strftime(hour_text, sizeof(hour_text), "%I", tick_time);
+    if(hour_text[0] == '0')
     {
-        string_format_time(date_text,
-                           sizeof(date_text),
-                           "%a, %b %d",
-                           t->tick_time);
-        text_layer_set_text(&date_layer, date_text);
+      /* This is a hack to get rid of the leading zero.
+       */
+      memmove(&hour_text[0], &hour_text[1], sizeof(hour_text) - 1);
     }
+  }
 
-    if (clock_is_24h_style())
-    {
-        string_format_time(hour_text, sizeof(hour_text), "%H", t->tick_time);
-    }
-    else
-    {
-        string_format_time(hour_text, sizeof(hour_text), "%I", t->tick_time);
-        if (hour_text[0] == '0')
-        {
-            /* This is a hack to get rid of the leading zero.
-            */
-            memmove(&hour_text[0], &hour_text[1], sizeof(hour_text) - 1);
-        }
-    }
+  strftime(minute_text, sizeof(minute_text), ":%M", tick_time);
+  time_layer_set_text(time_layer, hour_text, minute_text);
 
-    string_format_time(minute_text, sizeof(minute_text), ":%M", t->tick_time);
-    time_layer_set_text(&time_layer, hour_text, minute_text);
-	
-	if(!located || (t->tick_time->tm_min % 30) == initial_minute)
-	{
-		//Every 30 minutes, request updated weather
-		http_location_request();
-	}
-	else
-	{
-		//Every minute, ping the phone
-		link_monitor_ping();
-	}
+  /* if(!located || (t->tick_time->tm_min % 30) == initial_minute) */
+  /* { */
+  /*   //Every 30 minutes, request updated weather */
+  /*   http_location_request(); */
+  /* } */
+  /* else */
+  /* { */
+  /*   //Every minute, ping the phone */
+  /*   link_monitor_ping(); */
+  /* } */
+}
+
+/* Update the time and date.
+*/
+static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
+{
+  display_time(tick_time, units_changed);
 }
 
 static void window_load(Window * window)
 {
-  PblTm tm;
-  PebbleTickEvent t;
   ResHandle res_d;
   ResHandle res_h;
   ResHandle res_m;
 
   Layer *window_layer = window_get_root_layer(window);
-
-  resource_init_current_app(&APP_RESOURCES);
 
   res_d = resource_get_handle(RESOURCE_ID_FONT_ROBOTO_CONDENSED_21);
   res_h = resource_get_handle(RESOURCE_ID_FONT_ROBOTO_BOLD_SUBSET_49);
@@ -158,37 +152,44 @@ static void window_load(Window * window)
   font_hour = fonts_load_custom_font(res_h);
   font_minute = fonts_load_custom_font(res_m);
 
-  time_layer = time_layer_create(TIME_LAYER);
-  time_layer_set_text_color(&time_layer, GColorWhite);
-  time_layer_set_background_color(&time_layer, GColorClear);
-  time_layer_set_fonts(&time_layer, font_hour, font_minute);
-  layer_set_frame(&time_layer.layer, TIME_FRAME);
-  layer_add_child(&window.layer, &time_layer.layer);
+  time_layer = time_layer_create(TIME_FRAME);
+  time_layer_set_text_color(time_layer, GColorWhite);
+  time_layer_set_background_color(time_layer, GColorClear);
+  time_layer_set_fonts(time_layer, font_hour, font_minute);
+  layer_add_child(window_layer, time_layer);
 
-  /* text_layer_init(&date_layer, window.layer.frame); */
-  /* text_layer_set_text_color(&date_layer, GColorWhite); */
-  /* text_layer_set_background_color(&date_layer, GColorClear); */
-  /* text_layer_set_font(&date_layer, font_date); */
-  /* text_layer_set_text_alignment(&date_layer, GTextAlignmentCenter); */
-  /* layer_set_frame(&date_layer.layer, DATE_FRAME); */
-  /* layer_add_child(&window.layer, &date_layer.layer); */
+  date_layer = text_layer_create(DATE_FRAME);
+  text_layer_set_text_color(date_layer, GColorWhite);
+  text_layer_set_background_color(date_layer, GColorClear);
+  text_layer_set_font(date_layer, font_date);
+  text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
+  layer_add_child(window_layer, text_layer_get_layer(date_layer));
 
   /* // Add weather layer */
   /* weather_layer_init(&weather_layer, GPoint(0, 95)); //0, 100 */
   /* layer_add_child(&window.layer, &weather_layer.layer); */
 	
   /* http_register_callbacks((HTTPCallbacks){.failure=failed,.success=success,.reconnect=reconnect,.location=location}, (void*)ctx); */
-	
-  /* // Refresh time */
-  /* get_time(&tm); */
-  /* t.tick_time = &tm; */
-  /* t.units_changed = SECOND_UNIT | MINUTE_UNIT | HOUR_UNIT | DAY_UNIT; */
-	
-  /* initial_minute = (tm.tm_min % 30); */
-	
-  /* handle_minute_tick(ctx, &t); */
+
+  // Avoids a blank screen on watch start.
+  time_t now = time(NULL);
+  struct tm *tick_time = localtime(&now);
+  display_time(tick_time, YEAR_UNIT | 
+                          MONTH_UNIT | 
+                          DAY_UNIT | 
+                          HOUR_UNIT | 
+                          MINUTE_UNIT | 
+                          SECOND_UNIT);
+
+  tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
 }
 
+static void window_unload(Window * window)
+{
+  // TODO: cleanup everything
+  tick_timer_service_unsubscribe();
+  time_layer_destroy(time_layer);
+}
 
 /* Initialize the application.
 */
@@ -197,12 +198,13 @@ static void init()
     window = window_create();
     window_set_background_color(window, GColorBlack);
     window_set_fullscreen(window, true);
+    // TODO: put this in handlers, of in init/deinit?
     window_set_window_handlers(window, (WindowHandlers) {
         .load = window_load,
         .unload = window_unload
 	});
 
-    window_stack_push(window, true /* Animated */);
+  window_stack_push(window, true /* Animated */);
 }
 
 /* Shut down the application
@@ -214,12 +216,14 @@ static void deinit()
     fonts_unload_custom_font(font_minute);
 
     /* weather_layer_deinit(&weather_layer); */
+
+    window_destroy(window);
 }
 
 
 /********************* Main Program *******************/
 
-void main(void)
+int main(void)
 {
     /* PebbleAppHandlers handlers = */
     /* { */
@@ -240,6 +244,7 @@ void main(void)
     init();
     app_event_loop();
     deinit();
+    return 0;
 }
 
 /* void request_weather() { */
