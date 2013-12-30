@@ -1,26 +1,11 @@
 #include "pebble.h"
 
-/* #include "http.h" */
 #include "util.h"
 #include "weather_layer.h"
 #include "time_layer.h"
-/* #include "link_monitor.h" */
-/* #include "config.h" */
 
 #define TIME_FRAME      (GRect(0, 6, 144, 168-6))
 #define DATE_FRAME      (GRect(0, 62, 144, 168-62))
-
-/* // POST variables */
-/* #define WEATHER_KEY_LATITUDE 1 */
-/* #define WEATHER_KEY_LONGITUDE 2 */
-/* #define WEATHER_KEY_UNIT_SYSTEM 3 */
-	
-/* // Received variables */
-/* #define WEATHER_KEY_ICON 1 */
-/* #define WEATHER_KEY_TEMPERATURE 2 */
-	
-/* #define WEATHER_HTTP_COOKIE 1949327671 */
-/* #define TIME_HTTP_COOKIE 1131038282 */
 
 static Window * window;          /* main window */
 static TextLayer * date_layer;   /* layer for the date */
@@ -29,10 +14,6 @@ static TimeLayer * time_layer;   /* layer for the time */
 static GFont * font_date;        /* font for date (normal) */
 static GFont * font_hour;        /* font for hour (bold) */
 static GFont * font_minute;      /* font for minute (thin) */
-
-/* //Weather Stuff */
-/* static int our_latitude, our_longitude; */
-/* static bool located = false; */
 
 static WeatherLayer * weather_layer;
 
@@ -67,19 +48,6 @@ static WeatherLayer * weather_layer;
 /* 	} */
 	
 /* 	link_monitor_handle_success(); */
-/* } */
-
-/* void location(float latitude, float longitude, float altitude, float accuracy, void* context) { */
-/* 	// Fix the floats */
-/* 	our_latitude = latitude * 10000; */
-/* 	our_longitude = longitude * 10000; */
-/* 	located = true; */
-/* 	request_weather(); */
-/* } */
-
-/* void reconnect(void* context) { */
-/* 	located = false; */
-/* 	request_weather(); */
 /* } */
 
 /* void request_weather(); */
@@ -124,16 +92,8 @@ static void display_time(struct tm *tick_time, TimeUnits units_changed)
   strftime(minute_text, sizeof(minute_text), ":%M", tick_time);
   time_layer_set_text(time_layer, hour_text, minute_text);
 
-  /* if(!located || (t->tick_time->tm_min % 30) == initial_minute) */
-  /* { */
-  /*   //Every 30 minutes, request updated weather */
-  /*   http_location_request(); */
-  /* } */
-  /* else */
-  /* { */
-  /*   //Every minute, ping the phone */
-  /*   link_monitor_ping(); */
-  /* } */
+// TODO: add link monitoring: easy to get udpates now, but how to show weather is stale?
+// TODO: 1. mark as stale immediately, 2. mark as stale only after a certain time elapses without connection
 }
 
 /* Update the time and date.
@@ -203,8 +163,7 @@ static void window_unload(Window * window)
   weather_layer_destroy(weather_layer);
 }
 
-/* Initialize the application.
-*/
+// init application
 static void init()
 {
   window = window_create();
