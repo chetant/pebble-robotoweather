@@ -1,8 +1,8 @@
 #include "pebble.h"
 
 /* #include "http.h" */
-/* #include "util.h" */
-/* #include "weather_layer.h" */
+#include "util.h"
+#include "weather_layer.h"
 #include "time_layer.h"
 /* #include "link_monitor.h" */
 /* #include "config.h" */
@@ -34,7 +34,7 @@ static GFont * font_minute;      /* font for minute (thin) */
 /* static int our_latitude, our_longitude; */
 /* static bool located = false; */
 
-/* WeatherLayer weather_layer; */
+static WeatherLayer * weather_layer;
 
 /* void request_weather(); */
 
@@ -83,6 +83,13 @@ static GFont * font_minute;      /* font for minute (thin) */
 /* } */
 
 /* void request_weather(); */
+
+void set_uninit_weather()
+{
+  weather_layer_set_icon(weather_layer, WEATHER_ICON_NO_WEATHER);
+  WeatherData * wd = layer_get_data(weather_layer);
+  text_layer_set_text(wd->temp_layer, "---°");
+}
 
 static void display_time(struct tm *tick_time, TimeUnits units_changed)
 {
@@ -152,12 +159,14 @@ static void window_load(Window * window)
   font_hour = fonts_load_custom_font(res_h);
   font_minute = fonts_load_custom_font(res_m);
 
+  // setup time layer
   time_layer = time_layer_create(TIME_FRAME);
   time_layer_set_text_color(time_layer, GColorWhite);
   time_layer_set_background_color(time_layer, GColorClear);
   time_layer_set_fonts(time_layer, font_hour, font_minute);
   layer_add_child(window_layer, time_layer);
 
+  // setup date layer
   date_layer = text_layer_create(DATE_FRAME);
   text_layer_set_text_color(date_layer, GColorWhite);
   text_layer_set_background_color(date_layer, GColorClear);
@@ -165,11 +174,12 @@ static void window_load(Window * window)
   text_layer_set_text_alignment(date_layer, GTextAlignmentCenter);
   layer_add_child(window_layer, text_layer_get_layer(date_layer));
 
-  /* // Add weather layer */
-  /* weather_layer_init(&weather_layer, GPoint(0, 95)); //0, 100 */
-  /* layer_add_child(&window.layer, &weather_layer.layer); */
+  // Add weather layer
+  weather_layer = weather_layer_create(GPoint(0, 95)); //0, 100
+  layer_add_child(window_layer, weather_layer);
 	
-  /* http_register_callbacks((HTTPCallbacks){.failure=failed,.success=success,.reconnect=reconnect,.location=location}, (void*)ctx); */
+  // setup unknown state for weather
+  set_uninit_weather();
 
   // Avoids a blank screen on watch start.
   time_t now = time(NULL);
@@ -186,24 +196,26 @@ static void window_load(Window * window)
 
 static void window_unload(Window * window)
 {
-  // TODO: cleanup everything
+  // cleanup everything
   tick_timer_service_unsubscribe();
   time_layer_destroy(time_layer);
+  text_layer_destroy(date_layer);
+  weather_layer_destroy(weather_layer);
 }
 
 /* Initialize the application.
 */
 static void init()
 {
-    window = window_create();
-    window_set_background_color(window, GColorBlack);
-    window_set_fullscreen(window, true);
-    // TODO: put this in handlers, of in init/deinit?
-    window_set_window_handlers(window, (WindowHandlers) {
-        .load = window_load,
-        .unload = window_unload
-	});
-
+  window = window_create();
+  window_set_background_color(window, GColorBlack);
+  window_set_fullscreen(window, true);
+  /* // TODO: put this in handlers, of in init/deinit? */
+  /* window_set_window_handlers(window, (WindowHandlers) { */
+  /*     .load = window_load, */
+  /*     .unload = window_unload */
+  /*     }); */
+  window_load(window);
   window_stack_push(window, true /* Animated */);
 }
 
@@ -211,13 +223,13 @@ static void init()
 */
 static void deinit()
 {
-    fonts_unload_custom_font(font_date);
-    fonts_unload_custom_font(font_hour);
-    fonts_unload_custom_font(font_minute);
+  window_unload(window);
 
-    /* weather_layer_deinit(&weather_layer); */
-
-    window_destroy(window);
+  fonts_unload_custom_font(font_date);
+  fonts_unload_custom_font(font_hour);
+  fonts_unload_custom_font(font_minute);
+  
+  window_destroy(window);
 }
 
 
@@ -225,22 +237,6 @@ static void deinit()
 
 int main(void)
 {
-    /* PebbleAppHandlers handlers = */
-    /* { */
-    /*     .init_handler = &handle_init, */
-    /*     .deinit_handler = &handle_deinit, */
-    /*     .tick_info = */
-    /*     { */
-    /*         .tick_handler = &handle_minute_tick, */
-    /*         .tick_units = MINUTE_UNIT */
-    /*     }, */
-    /* 		.messaging_info = { */
-    /* 			.buffer_sizes = { */
-    /* 				.inbound = 124, */
-    /* 				.outbound = 124, */
-    /* 			} */
-    /* 		} */
-    /* }; */
     init();
     app_event_loop();
     deinit();

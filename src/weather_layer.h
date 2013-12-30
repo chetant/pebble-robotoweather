@@ -2,12 +2,15 @@
 #define WEATHER_LAYER_H
 
 typedef struct {
-	Layer layer;
-	BmpContainer icon_layer;
-	TextLayer temp_layer;
+	/* Layer layer; */
+	BitmapLayer * icon_layer;
+        GBitmap * icon;
+	TextLayer * temp_layer;
 	bool has_weather_icon;
 	char temp_str[5];
-} WeatherLayer;
+} WeatherData;
+
+typedef Layer WeatherLayer;
 
 typedef enum {
 	WEATHER_ICON_CLEAR_DAY = 0,
@@ -29,8 +32,8 @@ typedef enum {
 	WEATHER_ICON_COUNT
 } WeatherIcon;
 
-void weather_layer_init(WeatherLayer* weather_layer, GPoint pos);
-void weather_layer_deinit(WeatherLayer* weather_layer);
+WeatherLayer* weather_layer_create(GPoint pos);
+void weather_layer_destroy(WeatherLayer* weather_layer);
 void weather_layer_set_icon(WeatherLayer* weather_layer, WeatherIcon icon);
 void weather_layer_set_temperature(WeatherLayer* weather_layer, int16_t temperature);
 
