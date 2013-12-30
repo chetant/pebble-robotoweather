@@ -113,8 +113,9 @@ void time_layer_set_background_color(TimeLayer *tl, GColor color)
 */
 void time_layer_init(TimeLayer *tl, GRect frame)
 {
-    layer_init(&tl->layer, frame);
-    tl->layer.update_proc = (LayerUpdateProc)time_layer_update_proc;
+    tl->layer = layer_create(frame);
+    layer_set_update_proc(tl->layer, );
+    tl->layer->update_proc = (LayerUpdateProc)time_layer_update_proc;
     tl->text_color = GColorWhite;
     tl->background_color = GColorClear;
     tl->overflow_mode = GTextOverflowModeWordWrap;
