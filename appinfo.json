@@ -2,14 +2,12 @@
   "uuid": "f852db60-c438-4a60-875e-f6fcd7da9ccd",
   "shortName": "Saiko Roboto Weather",
   "longName": "Saiko Roboto Weather",
-  "capabilities" : [ "configurable" ],
   "companyName": "Saiko",
   "versionCode": 1,
   "versionLabel": "1.0.0",
   "watchapp": {
     "watchface": true
   },
-  "appKeys": {},
   "resources": {
     "media": [
         {
@@ -48,11 +46,6 @@
             "file": "images/menu_icon_roboto.png"
         },
         {
-            "name": "FONT_ROBOTO_CONDENSED_21",
-            "type": "font",
-            "file": "fonts/Roboto-Condensed.ttf"
-        },
-        {
             "characterRegex": "[:0-9]",
             "name": "FONT_ROBOTO_BOLD_SUBSET_49",
             "type": "font",
@@ -63,12 +56,6 @@
             "name": "FONT_ROBOTO_THIN_SUBSET_49",
             "type": "font",
             "file": "fonts/Roboto-Thin.ttf"
-        },
-        {
-            "characterRegex": "[:0-9]",
-            "name": "FONT_ROBOTO_LIGHT_SUBSET_49",
-            "type": "font",
-            "file": "fonts/Roboto-Light.ttf"
         },
         {
             "name": "ICON_CLEAR_DAY",
@@ -124,13 +111,6 @@
             "name": "ICON_WIND",
             "type": "png",
             "file": "images/wind.png"
-        },
-        {
-            "trackingAdjust": -4,
-            "characterRegex": "[0-9:\u00b0-]",
-            "name": "FUTURA_40",
-            "type": "font",
-            "file": "fonts/futura.ttf"
         }
     ]
   }

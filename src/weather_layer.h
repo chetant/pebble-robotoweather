@@ -7,7 +7,7 @@ typedef struct {
         GBitmap * icon;
 	TextLayer * temp_layer;
 	bool has_weather_icon;
-	char temp_str[5];
+	char temp_str[10];
 } WeatherData;
 
 typedef Layer WeatherLayer;

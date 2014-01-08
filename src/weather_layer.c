@@ -26,9 +26,9 @@ WeatherLayer* weather_layer_create(GPoint pos)
   WeatherLayer* wl = layer_create_with_data(GRect(pos.x, pos.y, 144, 68), sizeof(WeatherData));
   WeatherData* wd = layer_get_data(wl);
   // Add temperature layer
-  wd->temp_layer = text_layer_create(GRect(70, 9, 64, 68));
+  wd->temp_layer = text_layer_create(GRect(70, 13, 68, 68));
   text_layer_set_text_alignment(wd->temp_layer, GTextAlignmentCenter);
-  text_layer_set_font(wd->temp_layer, fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FUTURA_40)));
+  text_layer_set_font(wd->temp_layer, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK));
   text_layer_set_background_color(wd->temp_layer, GColorBlack);
   text_layer_set_text_color(wd->temp_layer, GColorWhite);		
   layer_add_child(wl, text_layer_get_layer(wd->temp_layer));
@@ -57,7 +57,7 @@ void weather_layer_set_icon(WeatherLayer* wl, WeatherIcon icon)
 void weather_layer_set_temperature(WeatherLayer* wl, int16_t t)
 {
   WeatherData* wd = layer_get_data(wl);
-  memcpy(wd->temp_str, itoa(t), 4);
+  snprintf(wd->temp_str, 10, "%i", t);
   int degree_pos = strlen(wd->temp_str);
   memcpy(&wd->temp_str[degree_pos], "°", 3);
   text_layer_set_text(wd->temp_layer, wd->temp_str);

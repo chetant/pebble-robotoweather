@@ -17,47 +17,124 @@ static GFont * font_minute;      /* font for minute (thin) */
 
 static WeatherLayer * weather_layer;
 
-/* void request_weather(); */
-
-/* void failed(int32_t cookie, int http_status, void* context) { */
-/* 	if(cookie == 0 || cookie == WEATHER_HTTP_COOKIE) { */
-/* 		weather_layer_set_icon(&weather_layer, WEATHER_ICON_NO_WEATHER); */
-/* 		text_layer_set_text(&weather_layer.temp_layer, "---°"); */
-/* 	} */
-	
-/* 	link_monitor_handle_failure(http_status); */
-	
-/* 	//Re-request the location and subsequently weather on next minute tick */
-/* 	located = false; */
-/* } */
-
-/* void success(int32_t cookie, int http_status, DictionaryIterator* received, void* context) { */
-/* 	if(cookie != WEATHER_HTTP_COOKIE) return; */
-/* 	Tuple* icon_tuple = dict_find(received, WEATHER_KEY_ICON); */
-/* 	if(icon_tuple) { */
-/* 		int icon = icon_tuple->value->int8; */
-/* 		if(icon >= 0 && icon < 16) { */
-/* 			weather_layer_set_icon(&weather_layer, icon); */
-/* 		} else { */
-/* 			weather_layer_set_icon(&weather_layer, WEATHER_ICON_NO_WEATHER); */
-/* 		} */
-/* 	} */
-/* 	Tuple* temperature_tuple = dict_find(received, WEATHER_KEY_TEMPERATURE); */
-/* 	if(temperature_tuple) { */
-/* 		weather_layer_set_temperature(&weather_layer, temperature_tuple->value->int16); */
-/* 	} */
-	
-/* 	link_monitor_handle_success(); */
-/* } */
-
-/* void request_weather(); */
-
 void set_uninit_weather()
 {
   weather_layer_set_icon(weather_layer, WEATHER_ICON_NO_WEATHER);
   WeatherData * wd = layer_get_data(weather_layer);
   text_layer_set_text(wd->temp_layer, "---°");
 }
+
+static AppSync sync;
+static uint8_t sync_buffer[64];
+
+static uint8_t curr_icon = 15;
+static int16_t curr_temperature = 0xFFF;
+static uint8_t curr_status = 1;
+
+enum WeatherKey
+{
+  WEATHER_ICON_KEY = 0x0,         // TUPLE_INT
+  WEATHER_TEMPERATURE_KEY = 0x1,  // TUPLE_INT
+};
+
+static void ping_phone_app()
+{
+  Tuplet dummy_values[] = {
+    TupletInteger(WEATHER_ICON_KEY, curr_icon),
+    TupletInteger(WEATHER_TEMPERATURE_KEY, curr_temperature),
+  };
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "App Sync ping: %d,%d", curr_icon, curr_temperature);
+  app_sync_set(&sync, dummy_values, ARRAY_LENGTH(dummy_values));
+}
+
+static void sync_error_callback(DictionaryResult dict_error, AppMessageResult app_message_error, void *context)
+{
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d", app_message_error);
+  set_uninit_weather();
+}
+
+static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple, const Tuple* old_tuple, void* context)
+{
+  switch(key)
+  {
+    case WEATHER_ICON_KEY:
+    {
+      curr_icon = new_tuple->value->uint8;
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "App Sync CB icon: %d", curr_icon);
+      weather_layer_set_icon(weather_layer, curr_icon);
+      break;
+    }
+    case WEATHER_TEMPERATURE_KEY:
+    {
+      const int16_t temperature = new_tuple->value->int16;
+      APP_LOG(APP_LOG_LEVEL_DEBUG, "App Sync CB temp: %d, %d", temperature, curr_temperature);
+      if(temperature == 0xFFF)
+      {
+        // we can come here either by 1. init or 2. phone cannot connect to weather server
+        // in case of #1, we need to ping for data immediately
+        // if *(uint8_t*)context == 1, we ping else not
+        set_uninit_weather();
+        if(context != NULL && *(uint8_t*)context == 1)
+        {
+          ping_phone_app();
+          *(uint8_t*)context = 0;
+        }
+      }
+      else
+        weather_layer_set_temperature(weather_layer, temperature);
+      curr_temperature = temperature;
+      break;
+    }
+  }
+}
+
+/* static void send_cmd(void) { */
+/*   Tuplet value = TupletInteger(1, 1); */
+
+/*   DictionaryIterator *iter; */
+/*   app_message_outbox_begin(&iter); */
+
+/*   if (iter == NULL) { */
+/*     return; */
+/*   } */
+
+/*   dict_write_tuplet(iter, &value); */
+/*   dict_write_end(iter); */
+
+/*   app_message_outbox_send(); */
+/* } */
+
+static void msg_inbox_cb(DictionaryIterator * iter, void * cxt)
+{
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "App inbox msg recv!");
+
+  uint8_t icon;
+  int16_t temperature;
+  int keys_read = 0;
+
+  Tuple * tuple = dict_read_first(iter);
+  while(NULL != tuple)
+  {
+    switch(tuple->key)
+    {
+    case WEATHER_ICON_KEY:
+      icon = tuple->value[0].uint8;
+      ++keys_read;
+      break;
+    case WEATHER_TEMPERATURE_KEY:
+      temperature = tuple->value[0].int16;
+      ++keys_read;
+      break;
+    }
+    tuple = dict_read_next(iter);
+  }
+  if(weather_layer == NULL || keys_read < 2)
+    return;
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "Setting weather: %d, %i", icon, temperature);
+  weather_layer_set_icon(weather_layer, icon);
+  weather_layer_set_temperature(weather_layer, temperature);
+}
+
 
 static void display_time(struct tm *tick_time, TimeUnits units_changed)
 {
@@ -101,21 +178,24 @@ static void display_time(struct tm *tick_time, TimeUnits units_changed)
 static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
 {
   display_time(tick_time, units_changed);
+  /* if(units_changed & HOUR_UNIT) */
+  {
+    // time to update weather
+    /* ping_phone_app(); */
+  }
 }
 
 static void window_load(Window * window)
 {
-  ResHandle res_d;
   ResHandle res_h;
   ResHandle res_m;
 
   Layer *window_layer = window_get_root_layer(window);
 
-  res_d = resource_get_handle(RESOURCE_ID_FONT_ROBOTO_CONDENSED_21);
   res_h = resource_get_handle(RESOURCE_ID_FONT_ROBOTO_BOLD_SUBSET_49);
   res_m = resource_get_handle(RESOURCE_ID_FONT_ROBOTO_THIN_SUBSET_49);
 
-  font_date = fonts_load_custom_font(res_d);
+  font_date = fonts_get_system_font(FONT_KEY_ROBOTO_CONDENSED_21);
   font_hour = fonts_load_custom_font(res_h);
   font_minute = fonts_load_custom_font(res_m);
 
@@ -152,11 +232,23 @@ static void window_load(Window * window)
                           SECOND_UNIT);
 
   tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
+
+  /* // kick off the weather fetch */
+  /* Tuplet initial_values[] = { */
+  /*   TupletInteger(WEATHER_ICON_KEY, (uint8_t) 15), */
+  /*   TupletInteger(WEATHER_TEMPERATURE_KEY, 0xFFF), */
+  /* }; */
+
+  /* app_sync_init(&sync, sync_buffer, sizeof(sync_buffer), initial_values, ARRAY_LENGTH(initial_values), */
+  /*               sync_tuple_changed_callback, sync_error_callback, (void*)&curr_status); */
+
 }
 
 static void window_unload(Window * window)
 {
   // cleanup everything
+  /* app_sync_deinit(&sync); */
+
   tick_timer_service_unsubscribe();
   time_layer_destroy(time_layer);
   text_layer_destroy(date_layer);
@@ -166,6 +258,11 @@ static void window_unload(Window * window)
 // init application
 static void init()
 {
+  const uint32_t inbound_size = 64;
+  const uint32_t outbound_size = 64;
+  app_message_register_inbox_received(msg_inbox_cb);
+  app_message_open(inbound_size, outbound_size);
+
   window = window_create();
   window_set_background_color(window, GColorBlack);
   window_set_fullscreen(window, true);
@@ -197,6 +294,7 @@ static void deinit()
 int main(void)
 {
     init();
+    APP_LOG(APP_LOG_LEVEL_DEBUG, "App initio!!");
     app_event_loop();
     deinit();
     return 0;
