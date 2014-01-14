@@ -24,85 +24,23 @@ void set_uninit_weather()
   text_layer_set_text(wd->temp_layer, "---°");
 }
 
-static AppSync sync;
-static uint8_t sync_buffer[64];
-
-static uint8_t curr_icon = 15;
-static int16_t curr_temperature = 0xFFF;
-static uint8_t curr_status = 1;
+static bool updateNow = false;
 
 enum WeatherKey
 {
-  WEATHER_ICON_KEY = 0x0,         // TUPLE_INT
-  WEATHER_TEMPERATURE_KEY = 0x1,  // TUPLE_INT
+  WEATHER_ICON_KEY = 0x0,
+  WEATHER_TEMPERATURE_KEY = 0x1,
 };
 
 static void ping_phone_app()
 {
-  Tuplet dummy_values[] = {
-    TupletInteger(WEATHER_ICON_KEY, curr_icon),
-    TupletInteger(WEATHER_TEMPERATURE_KEY, curr_temperature),
-  };
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "App Sync ping: %d,%d", curr_icon, curr_temperature);
-  app_sync_set(&sync, dummy_values, ARRAY_LENGTH(dummy_values));
+  Tuplet dummy = TupletInteger(0, 0);
+  DictionaryIterator * iter;
+  app_message_outbox_begin(&iter);
+  dict_write_tuplet(iter, &dummy);
+  app_message_outbox_send();
+  APP_LOG(APP_LOG_LEVEL_DEBUG, "App Sync ping");
 }
-
-static void sync_error_callback(DictionaryResult dict_error, AppMessageResult app_message_error, void *context)
-{
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "App Message Sync Error: %d", app_message_error);
-  set_uninit_weather();
-}
-
-static void sync_tuple_changed_callback(const uint32_t key, const Tuple* new_tuple, const Tuple* old_tuple, void* context)
-{
-  switch(key)
-  {
-    case WEATHER_ICON_KEY:
-    {
-      curr_icon = new_tuple->value->uint8;
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "App Sync CB icon: %d", curr_icon);
-      weather_layer_set_icon(weather_layer, curr_icon);
-      break;
-    }
-    case WEATHER_TEMPERATURE_KEY:
-    {
-      const int16_t temperature = new_tuple->value->int16;
-      APP_LOG(APP_LOG_LEVEL_DEBUG, "App Sync CB temp: %d, %d", temperature, curr_temperature);
-      if(temperature == 0xFFF)
-      {
-        // we can come here either by 1. init or 2. phone cannot connect to weather server
-        // in case of #1, we need to ping for data immediately
-        // if *(uint8_t*)context == 1, we ping else not
-        set_uninit_weather();
-        if(context != NULL && *(uint8_t*)context == 1)
-        {
-          ping_phone_app();
-          *(uint8_t*)context = 0;
-        }
-      }
-      else
-        weather_layer_set_temperature(weather_layer, temperature);
-      curr_temperature = temperature;
-      break;
-    }
-  }
-}
-
-/* static void send_cmd(void) { */
-/*   Tuplet value = TupletInteger(1, 1); */
-
-/*   DictionaryIterator *iter; */
-/*   app_message_outbox_begin(&iter); */
-
-/*   if (iter == NULL) { */
-/*     return; */
-/*   } */
-
-/*   dict_write_tuplet(iter, &value); */
-/*   dict_write_end(iter); */
-
-/*   app_message_outbox_send(); */
-/* } */
 
 static void msg_inbox_cb(DictionaryIterator * iter, void * cxt)
 {
@@ -131,8 +69,18 @@ static void msg_inbox_cb(DictionaryIterator * iter, void * cxt)
   if(weather_layer == NULL || keys_read < 2)
     return;
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Setting weather: %d, %i", icon, temperature);
-  weather_layer_set_icon(weather_layer, icon);
-  weather_layer_set_temperature(weather_layer, temperature);
+  if(temperature > 999)
+  {
+    set_uninit_weather();
+    // this is used as notification that the app is up
+    // ping the phone now to get the real weather
+    ping_phone_app();
+  }
+  else
+  {
+    weather_layer_set_icon(weather_layer, icon);
+    weather_layer_set_temperature(weather_layer, temperature);
+  }
 }
 
 
@@ -178,10 +126,11 @@ static void display_time(struct tm *tick_time, TimeUnits units_changed)
 static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
 {
   display_time(tick_time, units_changed);
-  /* if(units_changed & HOUR_UNIT) */
+  if(units_changed & HOUR_UNIT)
   {
     // time to update weather
-    /* ping_phone_app(); */
+    ping_phone_app();
+    updateNow = false;
   }
 }
 
@@ -232,16 +181,6 @@ static void window_load(Window * window)
                           SECOND_UNIT);
 
   tick_timer_service_subscribe(MINUTE_UNIT, handle_minute_tick);
-
-  /* // kick off the weather fetch */
-  /* Tuplet initial_values[] = { */
-  /*   TupletInteger(WEATHER_ICON_KEY, (uint8_t) 15), */
-  /*   TupletInteger(WEATHER_TEMPERATURE_KEY, 0xFFF), */
-  /* }; */
-
-  /* app_sync_init(&sync, sync_buffer, sizeof(sync_buffer), initial_values, ARRAY_LENGTH(initial_values), */
-  /*               sync_tuple_changed_callback, sync_error_callback, (void*)&curr_status); */
-
 }
 
 static void window_unload(Window * window)
