@@ -1,4 +1,4 @@
-pebble-robotoweather
+roboto2 weather watchface
 ====================
 
-Jellybean-time with Weather Information
+Now completely rewritten for Pebble 2.0
