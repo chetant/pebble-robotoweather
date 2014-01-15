@@ -24,7 +24,8 @@ void set_uninit_weather()
   text_layer_set_text(wd->temp_layer, "---°");
 }
 
-static bool updateNow = false;
+static bool pingSentWaitingForReply = false;
+static uint8_t minsSincePing = 0;
 
 enum WeatherKey
 {
@@ -39,6 +40,8 @@ static void ping_phone_app()
   app_message_outbox_begin(&iter);
   dict_write_tuplet(iter, &dummy);
   app_message_outbox_send();
+  pingSentWaitingForReply = true;
+  minsSincePing = 0;
   APP_LOG(APP_LOG_LEVEL_DEBUG, "App Sync ping");
 }
 
@@ -78,6 +81,7 @@ static void msg_inbox_cb(DictionaryIterator * iter, void * cxt)
   }
   else
   {
+    pingSentWaitingForReply = false;
     weather_layer_set_icon(weather_layer, icon);
     weather_layer_set_temperature(weather_layer, temperature);
   }
@@ -116,9 +120,6 @@ static void display_time(struct tm *tick_time, TimeUnits units_changed)
 
   strftime(minute_text, sizeof(minute_text), ":%M", tick_time);
   time_layer_set_text(time_layer, hour_text, minute_text);
-
-// TODO: add link monitoring: easy to get udpates now, but how to show weather is stale?
-// TODO: 1. mark as stale immediately, 2. mark as stale only after a certain time elapses without connection
 }
 
 /* Update the time and date.
@@ -130,7 +131,13 @@ static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed)
   {
     // time to update weather
     ping_phone_app();
-    updateNow = false;
+  }
+  if(pingSentWaitingForReply)
+  {
+    ++minsSincePing;
+    if(minsSincePing > 15)
+      // mark weather stale
+      set_uninit_weather();
   }
 }
 
@@ -186,8 +193,6 @@ static void window_load(Window * window)
 static void window_unload(Window * window)
 {
   // cleanup everything
-  /* app_sync_deinit(&sync); */
-
   tick_timer_service_unsubscribe();
   time_layer_destroy(time_layer);
   text_layer_destroy(date_layer);
@@ -220,7 +225,6 @@ static void deinit()
 {
   window_unload(window);
 
-  fonts_unload_custom_font(font_date);
   fonts_unload_custom_font(font_hour);
   fonts_unload_custom_font(font_minute);
   
