@@ -123,7 +123,7 @@ Pebble.addEventListener("showConfiguration", function(e) {
         settings = { "location": "Chicago,IL",
                      "units" : "metric" };
     }
-    var url = "http://chetant.info/test.html?location="+settings.location+"&units="+settings.units;
+    var url = "http://chetant.info/roboto2_config.html?location="+settings.location+"&units="+settings.units;
     console.log(url);
     Pebble.openURL(url);
     console.log(e.type);
@@ -135,4 +135,7 @@ Pebble.addEventListener("webviewclosed", function(e) {
     console.log(e.response);
     settings = JSON.parse(decodeURIComponent(e.response));
     console.log("got: " + settings.location + ", " + settings.units);
+    localStorage.setItem("settings.location", settings.location);
+    localStorage.setItem("settings.units", settings.units);
+    fetchWeather(settings.location, settings.units);
 });
