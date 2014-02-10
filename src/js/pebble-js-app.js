@@ -56,7 +56,7 @@ function fetchWeather(location, units)
     var response;
     var req = new XMLHttpRequest();
 
-    weather_api_uri = "http://api.openweathermap.org/data/2.1/forecast/city?q="+location+"&units="+units+"&type=hour";
+    weather_api_uri = "http://api.openweathermap.org/data/2.5/forecast/city?q="+location+"&units="+units+"&type=hour";
     req.open('GET', 
              weather_api_uri, 
              true);
@@ -74,8 +74,8 @@ function fetchWeather(location, units)
                 {
                     var weatherResult = response.list[0];
                     temperature = Math.round(weatherResult.main.temp);
-                    iconStr = weatherResult.weather.icon
-                    icon = iconFromWeatherId(weatherResult.weather.id, iconStr[iconStr.length-1] == "n");
+                    iconStr = weatherResult.weather[0].icon
+                    icon = iconFromWeatherId(weatherResult.weather[0].id, iconStr[iconStr.length-1] == "n");
                     console.log(temperature);
                     console.log(icon);
                     city = response.city.name;
